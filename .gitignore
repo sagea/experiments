@@ -1,0 +1,10 @@
+# Library Modules
+node_modules
+bower_components
+
+# Editors
+.idea
+.code
+
+# Other
+.DS_Store
