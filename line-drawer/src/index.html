@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="style.css">
+    <title>Line drawer</title>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvasLines" width="1920" height="1080"></canvas>
+        <canvas id="canvasPath" width="1920" height="1080"></canvas>
+        </div>
+        <div>
+        <div>
+            <label for="speedSlider">Speed</label>
+            <input type="range" id="speedSlider" min="1" max="100" step="1">
+        </div>
+        
+        <button id="stopBtn" >Pause</button>
+        <button id="continueBtn" >Continue</button>
+        <h2>Options</h2>
+        <textarea id="saved">100 -2
+        100 10</textarea>
+        <br />
+        <button id="updateButton">Update</button>
+    </div>
+              
+    <!-- Based on my jsfiddle https://jsfiddle.net/asagex/9Lp8mgef/ -->
+    <script src="index.js" type=module></script>
+</body>
+</html>
