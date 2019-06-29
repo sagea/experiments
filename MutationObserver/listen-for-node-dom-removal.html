@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Mutation Browser Tests</title>
+</head>
+<body>
+    <div id="a">
+        <div id="b">
+            <div id="c">
+                <div id="d">
+                    <div id="e">
+                        <div id="f"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        function random(min, max, wholeNumber) {
+            const randomNumber = (Math.random() * (max - min)) + min;
+            console.log(randomNumber);
+            return wholeNumber
+                ? Math.round(randomNumber)
+                : randomNumber;
+        }
+        function randomRGB(min = 0, max = 255) {
+            const r = random(min, max);
+            const g = random(min, max);
+            const b = random(min, max);
+            return `rgb(${r},${g},${b})`;
+        }
+        for (let idNode of document.querySelectorAll('[id]')) {
+            idNode.prepend(new Text(idNode.getAttribute('id')));
+            const color = randomRGB(0, 240);
+            Object.assign(idNode.style, {
+                border: `1px solid ${color}`,
+                padding: '5px',
+                color,
+            });
+        }
+    </script>
+    <script type=module>
+        const q = document.querySelector.bind(document);
+        const sleep = (time) => new Promise(resolve => setTimeout(resolve, time));
+        const da = q('#a');
+        const dc = q('#c');
+        const de = q('#d');
+        const ee = q('#e');
+        onNodeRemovalFromDOM(de, () => { console.log('REMOVED!'); });
+        function* getElementAncestors(node) {
+            let set = new WeakSet(); 
+            let l = node;
+            while(l.parentNode && !set.has(l.parentNode)) {
+                l = l.parentNode;
+                set.add(l);
+                yield l;
+            }
+        }
+        (async () => {
+            const parent = da.parentNode;
+            await sleep(1000);
+            parent.removeChild(da);
+            // await sleep(1000);
+            // parent.appendChild(de);
+            // await sleep(1000);
+            // parent.removeChild(de);
+        })();
+
+        function onNodeRemovalFromDOM(node, callback) {
+            if (!node.parentNode) {
+                callback();
+            }
+            const disposables = [];
+            const lineage = [node, ...getElementAncestors(node)];
+            for (let ancestor of lineage) {
+                if (ancestor === document.body) break;
+                disposables.push(onNodeRemovalFromParent(ancestor, () => {
+                    for (let disposable of disposables) {
+                        disposable();
+                    }
+                    callback();
+                }))
+            }
+        }
+        function onNodeRemovalFromParent(node, callback) {
+            if (!node.parentNode) {
+                throw new Error('Node not on the dom');
+            }
+            const mo = new MutationObserver((mutationRecords) => {
+                console.log(mutationRecords);
+                for (let record of mutationRecords) {
+                    if (Array.from(record.removedNodes).includes(node)) {
+                        callback();
+                        mo.disconnect();
+                    }
+                }
+            });
+            mo.observe(node.parentNode, { childList: true });
+            return () => mo.disconnect();
+        }
+    </script>
+
+</body>
+</html>
