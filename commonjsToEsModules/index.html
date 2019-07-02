@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>CommonJS to ES Modules</title>
+</head>
+<body>
+    <script src="https://unpkg.com/esprima@4.0.1/dist/esprima.js"></script>
+    <!-- <script type="application/javascript"> -->
+    <script type="text/worker-test">
+        importScripts('https://unpkg.com/esprima@4.0.1/dist/esprima.js');
+
+        onmessage = (event) => {
+            postMessage(
+                isEsModule(event.data)
+                    ? event.data
+                    : createExport(event.data)
+            )
+        }
+
+        function isEsModule(text) {
+            const parsed = esprima.parseModule(text);
+            const { ImportDeclaration, ExportAllDeclaration, ExportNamedDeclaration, ExportDefaultDeclaration } = esprima.Syntax;
+            const importExportDeclarations = [ExportAllDeclaration, ExportNamedDeclaration, ExportDefaultDeclaration];
+            const hasEsModuleDeclarations = parsed.body.some(item => importExportDeclarations.includes(item.type));
+            return hasEsModuleDeclarations;
+
+        }
+        function buildJs(wrapper) {
+            return (imports, text) => {
+                return `
+                        const f = ${wrapper(text).trim()}
+                        ${
+                            imports
+                                .map(key => `export let ${key} = f.${key};`)
+                                .join('\n')
+                        }
+                    `;
+            }
+        }
+
+        function randomJavascriptVariable () {
+            return '__' + Math.floor(Math.random() * 99999999999999);
+        }
+
+        function windowWrapper(text) {
+            return `
+                (() => {
+                    let __WINDOW_SET_CHECKER__ = {};
+                    let __OG_WINDOW__ = window;
+                    let window = new Proxy(__OG_WINDOW__, {
+                        get(obj, key) {
+                            if (__WINDOW_SET_CHECKER__[key]) {
+                                return Reflect.get(__WINDOW_SET_CHECKER__, key);
+                            }
+                            return Reflect.get(obj, key);
+                        },
+                        set(obj, key, value) {
+                            return Reflect.set(__WINDOW_SET_CHECKER__, key, value);
+                        }
+                    });
+                    __TEXT__
+                    return __WINDOW_SET_CHECKER__;
+                })();
+            `
+            .replace('__WINDOW_SET_CHECKER__', randomJavascriptVariable())
+            .replace('__OG_WINDOW__', randomJavascriptVariable())
+            .replace('__TEXT__', text);
+        }
+        function exportsWrapper(text) {
+            return `
+                (() => {
+                    let exports = {};
+                    ${text};
+                    return exports;
+                })();
+            `;
+        }
+        function thisWrapper(text) {
+            return `
+                (function () {
+                    ${text}
+                    return this;
+                }).call({});
+            `;
+        }
+        function isExportMethod(obj) {
+            return Object.keys(obj).length !== 0;
+        }
+        function createExport(text) {
+            function calc() {
+                let exports = {};
+                let window = {};
+                eval(`
+                    ${text}
+                `);
+
+                if (isExportMethod(this)) {
+                    let imports = Object.keys(this);
+                    if (imports.length === 1) {
+                        imports = Object.keys(this[imports[0]]);
+                    }
+                    console.log('this', imports);
+                    return buildJs(thisWrapper)(imports, text);
+                }
+
+                if (isExportMethod(window)) {
+                    let imports = Object.keys(window);
+                    if (imports.length === 1) {
+                        imports = Object.keys(window[imports[0]]);
+                    }
+                    return buildJs(windowWrapper)(imports, text);
+                }
+
+                if (isExportMethod(exports)) {
+                    const imports = Object.keys(exports);
+                    return buildJs(exportsWrapper)(imports, text)
+                }
+            }
+            return calc.call({}, text);
+        }
+    </script>
+
+    <script type=module>
+
+        function convertJavascriptFileToEsModule(moduleText) {
+            return new Promise((resolve, reject) => {
+                const blob = new Blob([document.querySelector('[type="text/worker-test"]').textContent], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                const worker = new Worker(blobUrl);
+                worker.onmessage = (event) => {
+                    worker.terminate();
+                    resolve(event.data);
+                };
+                worker.onerror = (event) => {
+                    reject(event);
+                };
+                worker.postMessage(moduleText);
+            });
+        }
+        async function getModuleText(url) {
+            const res = await fetch(url);
+            return await res.text();
+        }
+        (async () => {
+            const r = await getModuleText('https://unpkg.com/redux@4.0.1/dist/redux.js');
+            const rba = await getModuleText('https://unpkg.com/redux-batched-actions@0.4.1/lib/index.js');
+            const rExport = await getModuleText('https://unpkg.com/redux@4.0.1/src/compose.js');
+            const rImport = await getModuleText('https://unpkg.com/redux@4.0.1/src/index.js');
+            const at = await convertJavascriptFileToEsModule(r);
+            const arba = await convertJavascriptFileToEsModule(rba);
+            // const rExporta = await convertJavascriptFileToEsModule(rExport);
+            // const rImporta = await convertJavascriptFileToEsModule(rImport);
+            debugger;
+        })();
+    </script>
+</body>
+</html>
